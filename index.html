@@ -376,14 +376,33 @@ function speakBaidu(text, rate) {
         + '&spd=' + spd
         + '&per=0';
 
-    var audio = getAudioEl();
-    audio.src = url;
-    audio.load();
-    audio.play().then(function () {
-        console.log('✅ [百度] 播放中');
-    }).catch(function (err) {
-        console.error('❌ [百度] 播放失败:', err.message);
-    });
+    // 用 fetch 下载音频，更好处理错误
+    fetch(url)
+        .then(function (res) {
+            var contentType = res.headers.get('Content-Type') || '';
+            // 百度 TTS 返回 audio 就是成功，返回 JSON 就是失败
+            if (contentType.indexOf('audio') === -1) {
+                return res.json().then(function (err) {
+                    throw new Error('百度TTS返回错误: ' + (err.err_msg || err.err_no || '未知'));
+                });
+            }
+            return res.blob();
+        })
+        .then(function (blob) {
+            var blobUrl = URL.createObjectURL(blob);
+            var audio = new Audio(blobUrl);
+            audio.play().then(function () {
+                console.log('✅ [百度] 播放中');
+            }).catch(function (e) {
+                console.error('❌ [百度] 播放被拦截:', e.message);
+            });
+            audio.onended = function () {
+                URL.revokeObjectURL(blobUrl);
+            };
+        })
+        .catch(function (err) {
+            console.error('❌ [百度] 请求失败:', err.message);
+        });
 }
 
 function stopSpeaking() {
