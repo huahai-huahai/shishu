@@ -377,13 +377,11 @@ function speakBaidu(text, rate) {
     if (spd < 1) spd = 1;
     if (spd > 9) spd = 9;
 
-    var url = 'https://tts.baidu.com/text2audio'
-        + '?tex=' + encodeURIComponent(text)
-        + '&cuid=shishu_jiaoxue_app'
-        + '&lan=zh'
-        + '&ctp=1'
+    var url = 'https://fanyi.baidu.com/gettts'
+        + '?lan=zh'
+        + '&text=' + encodeURIComponent(text)
         + '&spd=' + spd
-        + '&per=0';
+        + '&source=web';
 
     fetch(url)
         .then(function (res) {
