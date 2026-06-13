@@ -138,6 +138,46 @@ body {
 .tips p { margin-bottom: 4px; }
 .tips p:last-child { margin-bottom: 0; }
 
+/* ========== 文字转语音卡片 ========== */
+.tts-card {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    padding: 20px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.tts-card .tts-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.tts-card .tts-hint {
+    font-size: 0.9rem;
+    color: var(--text-sub);
+    margin-bottom: 14px;
+}
+.tts-textarea {
+    width: 100%;
+    min-height: 110px;
+    border: 2px solid #e0d5c0;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 1.1rem;
+    font-family: inherit;
+    line-height: 1.7;
+    color: var(--text);
+    background: #FFFDF7;
+    resize: vertical;
+    -webkit-appearance: none;
+}
+.tts-textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+.tts-textarea::placeholder {
+    color: #c0b8a8;
+    font-size: 1rem;
+}
+
 /* ========== 响应式 ========== */
 @media (max-width: 360px) {
     .amount-number { --number-size: clamp(4rem, 14vw, 6rem); }
@@ -165,15 +205,24 @@ body {
     <!-- 随机按钮 -->
     <button id="btn-random" class="btn btn-accent btn-large">🎲 随机出一个金额</button>
 
+    <!-- 文字转语音 -->
+    <div class="tts-card">
+        <h2 class="tts-title">📝 文字转语音</h2>
+        <p class="tts-hint">把微信消息复制粘贴到框里，点播放就能听</p>
+        <textarea id="tts-input" class="tts-textarea"
+                  placeholder="长按这里粘贴文字..."></textarea>
+        <button id="btn-tts" class="btn btn-primary btn-large" style="margin-top:12px;">🔊 播放文字</button>
+    </div>
+
     <!-- 状态提示（调试用） -->
     <div id="status-bar" style="text-align:center; font-size:0.85rem; color:#888; min-height:1.2em;"></div>
 
     <!-- 提示 -->
     <div class="tips">
         <p>💡 <strong>使用说明：</strong></p>
-        <p>1. 看上面的<strong>大数字</strong>，试着认一认是多少钱</p>
-        <p>2. 点击 <strong>🔊 点我朗读</strong> 听怎么读</p>
-        <p>3. 点击 <strong>🎲 随机</strong> 换一个金额继续学</p>
+        <p><strong>📝 文字转语音</strong>：把微信消息粘贴到框里 → 点播放 → 听读</p>
+        <p><strong>🔊 点我朗读</strong>：听当前金额怎么读</p>
+        <p><strong>🎲 随机</strong>：换一个金额继续学</p>
     </div>
 </div>
 
@@ -495,6 +544,23 @@ document.getElementById('btn-read').addEventListener('click', function () {
 
 document.getElementById('btn-random').addEventListener('click', function () {
     setAmount(randomAmount());
+});
+
+document.getElementById('btn-tts').addEventListener('click', function () {
+    var text = document.getElementById('tts-input').value.trim();
+    if (!text) {
+        showStatus('请先粘贴要朗读的文字', '#D4726A');
+        return;
+    }
+    var btn = this;
+    var origText = btn.textContent;
+    btn.textContent = '🔊 播放中...';
+    btn.style.opacity = '0.7';
+    speakChinese(text);
+    setTimeout(function () {
+        btn.textContent = origText;
+        btn.style.opacity = '1';
+    }, 1500);
 });
 
 // ============================================================
