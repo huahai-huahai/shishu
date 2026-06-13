@@ -320,7 +320,7 @@ function speakChinese(text, rate) {
     if (useNativeSpeech && window.speechSynthesis) {
         speakNative(text, rate);
     } else {
-        speakEdge(text, rate);
+        speakBaiduCloud(text, rate);
     }
 }
 
@@ -350,7 +350,7 @@ function speakNative(text, rate) {
             synth.cancel();
             useNativeSpeech = false;
             showStatus('切换为在线语音...', '#888');
-            speakEdge(text, rate);
+            speakBaiduCloud(text, rate);
         }
     }, 1500);
 
@@ -364,141 +364,73 @@ function speakNative(text, rate) {
         clearTimeout(fallbackTimer);
         useNativeSpeech = false;
         showStatus('切换为在线语音...', '#888');
-        speakEdge(text, rate);
+        speakBaiduCloud(text, rate);
     };
 
     synth.speak(u);
 }
 
-/* 方案二：Microsoft Edge TTS — WebSocket 直连微软服务器 */
-/* 免费、高质量中文语音、不需要 API Key、不需要额外部署   */
-var _edgeAudio = null;
+/* 方案二：百度 TTS API（国内最稳，免费额度 100 万字符/月）   */
+/* ------------------------------------------------------------ */
+/* 获取 access_token 步骤（首次做一次，有效期 30 天）：         */
+/*                                                              */
+/*  1. 打开 https://console.bce.baidu.com/ 注册/登录            */
+/*  2. 左侧菜单 → 语音技术 → 创建应用                           */
+/*  3. 领取免费额度 → 拿到 API Key 和 Secret Key                */
+/*  4. 在浏览器地址栏粘贴下面这行（替换你的 Key）：              */
+/*     https://openapi.baidu.com/oauth/2.0/token?grant_type=    */
+/*     client_credentials&client_id=你的API_KEY&client_secret=   */
+/*     你的SECRET_KEY                                           */
+/*  5. 复制返回的 access_token 填到下面这行                     */
+/* ------------------------------------------------------------ */
+var BAIDU_TOKEN = '24.d818ace88e9146b2a0febb5d6d34e264.2592000.1783964819.282335-123701798';
 
-function getEdgeAudio() {
-    if (!_edgeAudio) {
-        _edgeAudio = document.createElement('audio');
-        _edgeAudio.setAttribute('playsinline', '');
-        document.body.appendChild(_edgeAudio);
+var _baiduAudio = null;
+
+function getBaiduAudio() {
+    if (!_baiduAudio) {
+        _baiduAudio = document.createElement('audio');
+        _baiduAudio.setAttribute('playsinline', '');
+        document.body.appendChild(_baiduAudio);
     }
-    return _edgeAudio;
+    return _baiduAudio;
 }
 
-function escapeXml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+function speakBaiduCloud(text, rate) {
+    showStatus('正在朗读...', '#4A7C59');
 
-function guid() {
-    return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        var r = Math.random() * 16 | 0;
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    // 语速映射：rate 0.85 → spd 3（百度 spd 范围 0-9）
+    var spd = Math.round(3 + (rate - 0.85) * 8);
+    if (spd < 0) spd = 0;
+    if (spd > 9) spd = 9;
+
+    var url = 'https://tsn.baidu.com/text2audio'
+        + '?lan=zh'
+        + '&ctp=1'
+        + '&cuid=shishu_app'
+        + '&tok=' + BAIDU_TOKEN
+        + '&tex=' + encodeURIComponent(text)
+        + '&per=0'
+        + '&spd=' + spd
+        + '&aue=3';
+
+    var audio = getBaiduAudio();
+    audio.src = url;
+
+    audio.onplay  = function () { showStatus('✅ 播放中', '#4A7C59'); };
+    audio.onended = function () { showStatus('', ''); };
+    audio.onerror = function () { showStatus('朗读失败，请检查网络', '#D4726A'); };
+
+    audio.play().catch(function () {
+        showStatus('请再点一次按钮', '#D4726A');
     });
-}
-
-function speakEdge(text, rate) {
-    showStatus('正在联网朗读...', '#4A7C59');
-
-    var ws;
-    try {
-        ws = new WebSocket(
-            'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1' +
-            '?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4'
-        );
-    } catch (e) {
-        showStatus('连接失败，请检查网络', '#D4726A');
-        return;
-    }
-
-    var audioChunks = [];
-    var hasData = false;
-    var done = false;
-
-    var timeoutId = setTimeout(function () {
-        if (!done) {
-            try { ws.close(); } catch (e) {}
-            showStatus('语音服务超时，请重试', '#D4726A');
-        }
-    }, 10000);
-
-    ws.onopen = function () {
-        // 1. 发送音频配置
-        var configMsg =
-            'X-Timestamp:' + new Date().toISOString() + '\r\n' +
-            'Content-Type:application/json; charset=utf-8\r\n' +
-            'Path:speech.config\r\n\r\n' +
-            '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}';
-        ws.send(configMsg);
-
-        // 2. 发送 SSML（带语速）
-        var speed = rate.toFixed(2);
-        var ssml =
-            '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"' +
-            ' xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="zh-CN">' +
-            '<voice name="zh-CN-XiaoxiaoNeural">' +
-            '<prosody rate="' + speed + '" pitch="+0Hz">' +
-            escapeXml(text) +
-            '</prosody></voice></speak>';
-
-        var reqId = guid();
-        var ssmlMsg =
-            'X-RequestId:' + reqId + '\r\n' +
-            'Content-Type:application/ssml+xml\r\n' +
-            'Path:ssml\r\n\r\n' +
-            ssml;
-        ws.send(ssmlMsg);
-    };
-
-    ws.onmessage = function (e) {
-        if (e.data instanceof ArrayBuffer) {
-            // 二进制 = MP3 音频片段
-            audioChunks.push(e.data);
-            hasData = true;
-        } else if (typeof e.data === 'string') {
-            if (e.data.indexOf('Path:turn.end') !== -1) {
-                // 音频流结束
-                done = true;
-                clearTimeout(timeoutId);
-                try { ws.close(); } catch (e) {}
-
-                if (audioChunks.length > 0) {
-                    var blob = new Blob(audioChunks, { type: 'audio/mp3' });
-                    var blobUrl = URL.createObjectURL(blob);
-                    var audio = getEdgeAudio();
-                    audio.src = blobUrl;
-                    audio.onplay  = function () { showStatus('✅ 播放中', '#4A7C59'); };
-                    audio.onended = function () {
-                        showStatus('', '');
-                        URL.revokeObjectURL(blobUrl);
-                    };
-                    audio.onerror = function () {
-                        showStatus('播放失败，请重试', '#D4726A');
-                    };
-                    audio.play().catch(function () {
-                        showStatus('请再点一次按钮', '#D4726A');
-                    });
-                }
-            }
-            // 其他文本消息（audio.metadata 等）忽略
-        }
-    };
-
-    ws.onerror = function () {
-        if (!done) {
-            done = true;
-            clearTimeout(timeoutId);
-            showStatus('网络不通，请检查是否联网', '#D4726A');
-        }
-    };
-
-    ws.onclose = function () {
-        clearTimeout(timeoutId);
-    };
 }
 
 function stopSpeaking() {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
-    if (_edgeAudio) {
-        _edgeAudio.pause();
-        _edgeAudio.removeAttribute('src');
+    if (_baiduAudio) {
+        _baiduAudio.pause();
+        _baiduAudio.removeAttribute('src');
     }
 }
 
