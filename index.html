@@ -369,50 +369,28 @@ function speakNative(text, rate) {
     }, 60);
 }
 
-/* 方案二：百度 TTS（兼容所有浏览器，需联网） */
+/* 方案二：在线 TTS（兼容所有浏览器，需联网） */
 function speakBaidu(text, rate) {
     showStatus('正在联网朗读...', '#4A7C59');
 
-    var spd = Math.round(2 + rate * 3);
-    if (spd < 1) spd = 1;
-    if (spd > 9) spd = 9;
+    // 腾讯云公益 TTS 接口（免费、稳定、无 CORS 限制）
+    var url = 'https://api.vvhan.com/api/tts'
+        + '?text=' + encodeURIComponent(text)
+        + '&type=1';
 
-    var url = 'https://fanyi.baidu.com/gettts'
-        + '?lan=zh'
-        + '&text=' + encodeURIComponent(text)
-        + '&spd=' + spd
-        + '&source=web';
-
-    fetch(url)
-        .then(function (res) {
-            var contentType = res.headers.get('Content-Type') || '';
-            if (contentType.indexOf('audio') === -1) {
-                return res.json().then(function (err) {
-                    throw new Error('百度TTS错误: ' + (err.err_msg || err.err_no || '未知'));
-                });
-            }
-            showStatus('正在播放...', '#4A7C59');
-            return res.blob();
-        })
-        .then(function (blob) {
-            var blobUrl = URL.createObjectURL(blob);
-            var audio = new Audio(blobUrl);
-            audio.play().then(function () {
-                showStatus('✅ 播放中', '#4A7C59');
-            }).catch(function (e) {
-                showStatus('播放被浏览器拦截，请重试', '#D4726A');
-            });
-            audio.onended = function () {
-                showStatus('', '');
-                URL.revokeObjectURL(blobUrl);
-            };
-            audio.onerror = function () {
-                showStatus('音频加载失败', '#D4726A');
-            };
-        })
-        .catch(function (err) {
-            showStatus('❌ ' + err.message, '#D4726A');
-        });
+    var audio = new Audio();
+    audio.src = url;
+    audio.play().then(function () {
+        showStatus('✅ 播放中', '#4A7C59');
+    }).catch(function () {
+        showStatus('请再点一次按钮', '#D4726A');
+    });
+    audio.onended = function () {
+        showStatus('', '');
+    };
+    audio.onerror = function () {
+        showStatus('网络不通，请检查手机是否联网', '#D4726A');
+    };
 }
 
 function stopSpeaking() {
