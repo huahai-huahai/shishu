@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>识数教学</title>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#4A7C59">
+
+<!-- iOS 添加到主屏幕 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="识数教学">
+<link rel="apple-touch-icon" href="./icon.svg">
+<style>
+/* ========== 设计变量 ========== */
+:root {
+    --bg:        #FFF8E7;
+    --card-bg:   #FFFFFF;
+    --text:      #2C2C2C;
+    --text-sub:  #5C5C5C;
+    --primary:   #4A7C59;
+    --accent:    #D4726A;
+    --number-size: clamp(5rem, 18vw, 8rem);
+    --btn-radius: 14px;
+    --card-radius: 18px;
+}
+
+/* ========== 基础 ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    line-height: 1.5;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 40px;
+}
+
+/* ========== 头部 ========== */
+.app-header {
+    text-align: center;
+    padding: 16px 0 0;
+}
+.app-header h1 {
+    font-size: 2rem;
+    letter-spacing: 4px;
+    font-weight: 700;
+}
+.app-header .subtitle {
+    font-size: 1rem;
+    color: var(--text-sub);
+    margin-top: 4px;
+}
+
+/* ========== 金额卡片 ========== */
+.amount-card {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    padding: 28px 12px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.amount-number {
+    font-size: var(--number-size);
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 2px;
+    white-space: nowrap;
+    display: inline-block;
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+}
+.amount-number .unit {
+    font-size: 0.45em;
+    font-weight: 600;
+    color: var(--text-sub);
+    margin-left: 2px;
+}
+.amount-speech {
+    font-size: 1.5rem;
+    color: var(--primary);
+    margin-top: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    min-height: 2.2rem;
+}
+
+/* ========== 按钮 ========== */
+.btn {
+    border: none;
+    border-radius: var(--btn-radius);
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 56px;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.btn:active { opacity: 0.85; }
+.btn-large {
+    min-height: 64px;
+    font-size: 1.35rem;
+    letter-spacing: 2px;
+    width: 100%;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-accent  { background: var(--accent);  color: #fff; }
+
+/* ========== 提示 ========== */
+.tips {
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    padding: 16px 20px;
+    font-size: 0.95rem;
+    color: var(--text-sub);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.tips p { margin-bottom: 4px; }
+.tips p:last-child { margin-bottom: 0; }
+
+/* ========== 响应式 ========== */
+@media (max-width: 360px) {
+    .amount-number { --number-size: clamp(4rem, 14vw, 6rem); }
+    .btn-large { font-size: 1.2rem; min-height: 56px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <h1>识数教学</h1>
+        <p class="subtitle">认识数字 · 学会看价钱</p>
+    </header>
+
+    <!-- 金额卡片 -->
+    <div class="amount-card">
+        <div class="amount-number" id="amount">11.30<span class="unit">元</span></div>
+        <div class="amount-speech" id="speech">十一块三毛钱</div>
+    </div>
+
+    <!-- 朗读按钮 -->
+    <button id="btn-read" class="btn btn-primary btn-large">🔊 点我朗读</button>
+
+    <!-- 随机按钮 -->
+    <button id="btn-random" class="btn btn-accent btn-large">🎲 随机出一个金额</button>
+
+    <!-- 提示 -->
+    <div class="tips">
+        <p>💡 <strong>使用说明：</strong></p>
+        <p>1. 看上面的<strong>大数字</strong>，试着认一认是多少钱</p>
+        <p>2. 点击 <strong>🔊 点我朗读</strong> 听怎么读</p>
+        <p>3. 点击 <strong>🎲 随机</strong> 换一个金额继续学</p>
+    </div>
+</div>
+
+<script>
+// ============================================================
+//  中文数字转换
+// ============================================================
+
+const DIGITS = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+const LIANG  = ['零', '一', '两', '三', '四', '五', '六', '七', '八', '九'];
+
+/* 0-9999 整数转中文 */
+function integerToChinese(num) {
+    if (num === 0) return '零';
+
+    const qian = Math.floor(num / 1000);
+    const bai  = Math.floor((num % 1000) / 100);
+    const shi  = Math.floor((num % 100) / 10);
+    const ge   = num % 10;
+
+    let result = '';
+    let started = false;
+    let zeroPending = false;
+
+    if (qian > 0) {
+        result += (qian === 2 ? '两' : DIGITS[qian]) + '千';
+        started = true;
+    }
+    if (bai > 0) {
+        result += (bai === 2 ? '两' : DIGITS[bai]) + '百';
+        started = true;
+    } else if (started) {
+        zeroPending = true;
+    }
+    if (shi > 0) {
+        if (zeroPending) { result += '零'; zeroPending = false; }
+        if (shi === 1 && !started) {
+            result += '十';
+        } else {
+            result += DIGITS[shi] + '十';
+        }
+        started = true;
+    } else if (started) {
+        zeroPending = true;
+    }
+    if (ge > 0) {
+        if (zeroPending) { result += '零'; zeroPending = false; }
+        if (started) {
+            result += DIGITS[ge];
+        } else {
+            result += (ge === 2 ? '两' : DIGITS[ge]);
+        }
+    }
+    return result;
+}
+
+/* 金额转口语中文 */
+function numberToMoneySpeech(amount) {
+    if (amount < 0) return '请输入正数';
+    if (amount > 9999.99) return '金额太大了';
+
+    const totalFen = Math.round(amount * 100);
+    const yuan = Math.floor(totalFen / 100);
+    const jiao = Math.floor((totalFen % 100) / 10);
+    const fen  = totalFen % 10;
+
+    if (yuan === 0 && jiao === 0 && fen === 0) return '零块钱';
+
+    let result = '';
+    if (yuan > 0) result += integerToChinese(yuan) + '块';
+    if (yuan > 0 && jiao === 0 && fen > 0) result += '零';
+    if (jiao > 0) result += LIANG[jiao] + '毛';
+    if (fen > 0)  result += LIANG[fen] + '分';
+    result += '钱';
+    return result;
+}
+
+function formatAmount(amount) {
+    return amount.toFixed(2);
+}
+
+// ============================================================
+//  语音合成（双引擎：浏览器原生 + 百度TTS兜底）
+// ============================================================
+
+var useNativeSpeech = false;  // 是否用原生引擎
+var chineseVoice = null;
+var audioEl = null;           // 百度 TTS 用的 <audio> 元素
+var nativeTested = false;     // 是否已完成原生能力检测
+
+// 初始化：找中文语音（没有中文语音就用百度 TTS，绝不弹 Google Play）
+function initVoices() {
+    var voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) return;
+    chineseVoice = voices.find(function (v) { return v.lang === 'zh-CN'; })
+                || voices.find(function (v) { return v.lang === 'zh-TW'; })
+                || voices.find(function (v) { return v.lang.indexOf('zh') === 0; })
+                || null;
+    // 只有找到中文语音才用原生，否则走百度 TTS
+    if (!nativeTested) {
+        nativeTested = true;
+        if (chineseVoice) {
+            useNativeSpeech = true;
+            console.log('✅ 中文语音就绪：' + chineseVoice.name);
+        } else {
+            useNativeSpeech = false;
+            console.log('⚠️ 无中文语音，使用百度 TTS（不弹 Google Play）');
+        }
+    }
+}
+
+if (window.speechSynthesis) {
+    initVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', initVoices);
+    // 2 秒后最终确认
+    setTimeout(function () {
+        if (!nativeTested) {
+            nativeTested = true;
+            initVoices();
+            // 再查一次，实在没有就算了
+            if (!chineseVoice) {
+                useNativeSpeech = false;
+                console.log('⚠️ 最终确认：无中文语音，使用百度 TTS');
+            }
+        }
+    }, 2000);
+} else {
+    nativeTested = true;
+    useNativeSpeech = false;
+    console.log('ℹ️ 浏览器不支持原生语音，使用百度 TTS');
+}
+
+// 创建音频播放器（百度 TTS 兜底用）
+function getAudioEl() {
+    if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.style.display = 'none';
+        audioEl.setAttribute('playsinline', '');
+        document.body.appendChild(audioEl);
+    }
+    return audioEl;
+}
+
+/* 主入口 */
+function speakChinese(text, rate) {
+    rate = rate || 0.85;
+    if (useNativeSpeech && window.speechSynthesis) {
+        speakNative(text, rate);
+    } else {
+        speakBaidu(text, rate);
+    }
+}
+
+/* 方案一：浏览器原生语音 */
+var _nativeBusy = false;
+
+function speakNative(text, rate) {
+    console.log('🔊 [原生] 朗读:', text);
+
+    var synth = window.speechSynthesis;
+
+    // 防止 Chrome 卡死：先 resume
+    synth.resume();
+
+    // 等上一个结束再播
+    synth.cancel();
+    setTimeout(function () {
+        var u = new SpeechSynthesisUtterance(text);
+        u.rate = rate;
+        u.pitch = 1.0;
+        u.volume = 1.0;
+        u.lang = 'zh-CN';
+        if (chineseVoice) u.voice = chineseVoice;
+
+        u.onstart = function () { console.log('✅ [原生] 播放中'); };
+        u.onend   = function () { console.log('🏁 [原生] 播放完毕'); };
+        u.onerror = function (e) {
+            console.warn('❌ [原生] 出错:', e.error);
+            // 任何错误都立即切到百度 TTS
+            useNativeSpeech = false;
+            console.log('🔄 切换为百度 TTS');
+            speakBaidu(text, rate);
+        };
+
+        synth.speak(u);
+    }, 60);
+}
+
+/* 方案二：百度 TTS（兼容所有浏览器，需联网） */
+function speakBaidu(text, rate) {
+    console.log('🔊 [百度] 朗读:', text);
+
+    var spd = Math.round(2 + rate * 3);
+    if (spd < 1) spd = 1;
+    if (spd > 9) spd = 9;
+
+    var url = 'https://tts.baidu.com/text2audio'
+        + '?tex=' + encodeURIComponent(text)
+        + '&cuid=shishu_jiaoxue_app'
+        + '&lan=zh'
+        + '&ctp=1'
+        + '&pdt=1'
+        + '&spd=' + spd
+        + '&per=0';
+
+    var audio = getAudioEl();
+    audio.src = url;
+    audio.load();
+    audio.play().then(function () {
+        console.log('✅ [百度] 播放中');
+    }).catch(function (err) {
+        console.error('❌ [百度] 播放失败:', err.message);
+    });
+}
+
+function stopSpeaking() {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    var a = getAudioEl();
+    a.pause();
+    a.removeAttribute('src');
+}
+
+// ============================================================
+//  状态与逻辑
+// ============================================================
+
+var currentAmount = 11.3;
+var lastAmount = -1;
+
+/* 生成百以内随机金额（0.01 ~ 99.99，两位小数） */
+function randomAmount() {
+    var totalFen, attempts = 0;
+    do {
+        totalFen = 1 + Math.floor(Math.random() * 19999); // 1 ~ 19999 分 = 0.01 ~ 199.99 元
+        attempts++;
+    } while (totalFen / 100 === lastAmount && attempts < 10);
+    lastAmount = totalFen / 100;
+    return lastAmount;
+}
+
+function updateUI() {
+    var el = document.getElementById('amount');
+    var formatted = formatAmount(currentAmount);
+    el.innerHTML = formatted + '<span class="unit">元</span>';
+    document.getElementById('speech').textContent = numberToMoneySpeech(currentAmount);
+
+    // 数字长了自动缩小字号，避免"元"换行
+    var len = formatted.length;  // 含小数点和两位小数，如 "100.00" = 6
+    if (len >= 6) {
+        el.style.fontSize = 'clamp(3rem, 12vw, 5rem)';
+    } else if (len >= 5) {
+        el.style.fontSize = 'clamp(4rem, 15vw, 6.5rem)';
+    } else {
+        el.style.fontSize = '';
+    }
+}
+
+function setAmount(amount) {
+    stopSpeaking();
+    currentAmount = amount;
+    updateUI();
+    speakChinese(numberToMoneySpeech(amount));
+}
+
+// ============================================================
+//  事件绑定
+// ============================================================
+
+document.getElementById('btn-read').addEventListener('click', function () {
+    var btn = this;
+    var origText = btn.textContent;
+    btn.textContent = '🔊 朗读中...';
+    btn.style.opacity = '0.7';
+    speakChinese(numberToMoneySpeech(currentAmount));
+    // 1 秒后恢复按钮文字
+    setTimeout(function () {
+        btn.textContent = origText;
+        btn.style.opacity = '1';
+    }, 1000);
+});
+
+document.getElementById('btn-random').addEventListener('click', function () {
+    setAmount(randomAmount());
+});
+
+// ============================================================
+//  初始化
+// ============================================================
+
+// 随机一个默认金额（页面加载时不出声）
+currentAmount = randomAmount();
+updateUI();
+
+// 注册 Service Worker（离线缓存 + 可安装）
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').then(function () {
+        console.log('✅ Service Worker 已注册');
+    }).catch(function (err) {
+        console.warn('Service Worker 注册失败（file:// 或 HTTP 下不可用，部署到 HTTPS 即可）:', err.message);
+    });
+}
+</script>
+
+</body>
+</html>
