@@ -270,7 +270,6 @@ function showStatus(msg, color) {
 
 var useNativeSpeech = false;  // 是否用原生引擎
 var chineseVoice = null;
-var audioEl = null;           // 百度 TTS 用的 <audio> 元素
 var nativeTested = false;     // 是否已完成原生能力检测
 
 // 初始化：找中文语音（没有中文语音就用百度 TTS，绝不弹 Google Play）
@@ -315,17 +314,6 @@ if (window.speechSynthesis) {
     console.log('ℹ️ 浏览器不支持原生语音，使用百度 TTS');
 }
 
-// 创建音频播放器（百度 TTS 兜底用）
-function getAudioEl() {
-    if (!audioEl) {
-        audioEl = document.createElement('audio');
-        audioEl.style.display = 'none';
-        audioEl.setAttribute('playsinline', '');
-        document.body.appendChild(audioEl);
-    }
-    return audioEl;
-}
-
 /* 主入口 */
 function speakChinese(text, rate) {
     rate = rate || 0.85;
@@ -337,67 +325,78 @@ function speakChinese(text, rate) {
 }
 
 /* 方案一：浏览器原生语音 */
-var _nativeBusy = false;
-
 function speakNative(text, rate) {
     console.log('🔊 [原生] 朗读:', text);
 
     var synth = window.speechSynthesis;
 
-    // 防止 Chrome 卡死：先 resume
+    // 防止 Chrome 卡死：先 cancel 再 resume
+    synth.cancel();
     synth.resume();
 
-    // 等上一个结束再播
-    synth.cancel();
-    setTimeout(function () {
-        var u = new SpeechSynthesisUtterance(text);
-        u.rate = rate;
-        u.pitch = 1.0;
-        u.volume = 1.0;
-        u.lang = 'zh-CN';
-        if (chineseVoice) u.voice = chineseVoice;
+    // 必须同步调用 speak()，不能有 setTimeout！
+    // 手机浏览器要求 speak() 在用户手势内调用，异步延迟会被拦截
+    var u = new SpeechSynthesisUtterance(text);
+    u.rate = rate;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    u.lang = 'zh-CN';
+    if (chineseVoice) u.voice = chineseVoice;
 
-        u.onstart = function () { showStatus('✅ 播放中', '#4A7C59'); };
-        u.onend   = function () { showStatus('', ''); };
-        u.onerror = function (e) {
-            useNativeSpeech = false;
-            showStatus('切换为在线语音...', '#888');
-            speakBaidu(text, rate);
-        };
+    u.onstart = function () { showStatus('✅ 播放中', '#4A7C59'); };
+    u.onend   = function () { showStatus('', ''); };
+    u.onerror = function () {
+        // 原生语音失败，永久切到在线 TTS
+        useNativeSpeech = false;
+        showStatus('切换为在线语音...', '#888');
+        speakBaidu(text, rate);
+    };
 
-        synth.speak(u);
-    }, 60);
+    synth.speak(u);
 }
 
 /* 方案二：在线 TTS（兼容所有浏览器，需联网） */
+var _onlineAudio = null;
+
+function getOnlineAudio() {
+    if (!_onlineAudio) {
+        _onlineAudio = document.createElement('audio');
+        _onlineAudio.setAttribute('playsinline', '');
+        _onlineAudio.setAttribute('preload', 'auto');
+        document.body.appendChild(_onlineAudio);
+    }
+    return _onlineAudio;
+}
+
 function speakBaidu(text, rate) {
     showStatus('正在联网朗读...', '#4A7C59');
 
-    // 腾讯云公益 TTS 接口（免费、稳定、无 CORS 限制）
     var url = 'https://api.vvhan.com/api/tts'
         + '?text=' + encodeURIComponent(text)
         + '&type=1';
 
-    var audio = new Audio();
+    var audio = getOnlineAudio();
     audio.src = url;
-    audio.play().then(function () {
-        showStatus('✅ 播放中', '#4A7C59');
-    }).catch(function () {
-        showStatus('请再点一次按钮', '#D4726A');
-    });
-    audio.onended = function () {
-        showStatus('', '');
-    };
-    audio.onerror = function () {
-        showStatus('网络不通，请检查手机是否联网', '#D4726A');
-    };
+    audio.load();
+
+    audio.onplay  = function () { showStatus('✅ 播放中', '#4A7C59'); };
+    audio.onended = function () { showStatus('', ''); };
+    audio.onerror = function () { showStatus('网络不通，请检查是否联网', '#D4726A'); };
+
+    var playPromise = audio.play();
+    if (playPromise && playPromise.catch) {
+        playPromise.catch(function () {
+            showStatus('请再点一次按钮', '#D4726A');
+        });
+    }
 }
 
 function stopSpeaking() {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
-    var a = getAudioEl();
-    a.pause();
-    a.removeAttribute('src');
+    if (_onlineAudio) {
+        _onlineAudio.pause();
+        _onlineAudio.removeAttribute('src');
+    }
 }
 
 // ============================================================
