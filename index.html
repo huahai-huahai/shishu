@@ -165,6 +165,9 @@ body {
     <!-- 随机按钮 -->
     <button id="btn-random" class="btn btn-accent btn-large">🎲 随机出一个金额</button>
 
+    <!-- 状态提示（调试用） -->
+    <div id="status-bar" style="text-align:center; font-size:0.85rem; color:#888; min-height:1.2em;"></div>
+
     <!-- 提示 -->
     <div class="tips">
         <p>💡 <strong>使用说明：</strong></p>
@@ -256,6 +259,15 @@ function formatAmount(amount) {
 //  语音合成（双引擎：浏览器原生 + 百度TTS兜底）
 // ============================================================
 
+// 在页面上显示状态（手机上没法看控制台）
+function showStatus(msg, color) {
+    var bar = document.getElementById('status-bar');
+    if (bar) {
+        bar.textContent = msg;
+        bar.style.color = color || '#888';
+    }
+}
+
 var useNativeSpeech = false;  // 是否用原生引擎
 var chineseVoice = null;
 var audioEl = null;           // 百度 TTS 用的 <audio> 元素
@@ -274,10 +286,10 @@ function initVoices() {
         nativeTested = true;
         if (chineseVoice) {
             useNativeSpeech = true;
-            console.log('✅ 中文语音就绪：' + chineseVoice.name);
+            showStatus('语音就绪 ✓', '#4A7C59');
         } else {
             useNativeSpeech = false;
-            console.log('⚠️ 无中文语音，使用百度 TTS（不弹 Google Play）');
+            showStatus('在线语音模式（需联网）', '#888');
         }
     }
 }
@@ -293,7 +305,7 @@ if (window.speechSynthesis) {
             // 再查一次，实在没有就算了
             if (!chineseVoice) {
                 useNativeSpeech = false;
-                console.log('⚠️ 最终确认：无中文语音，使用百度 TTS');
+                showStatus('在线语音模式（需联网）', '#888');
             }
         }
     }, 2000);
@@ -345,13 +357,11 @@ function speakNative(text, rate) {
         u.lang = 'zh-CN';
         if (chineseVoice) u.voice = chineseVoice;
 
-        u.onstart = function () { console.log('✅ [原生] 播放中'); };
-        u.onend   = function () { console.log('🏁 [原生] 播放完毕'); };
+        u.onstart = function () { showStatus('✅ 播放中', '#4A7C59'); };
+        u.onend   = function () { showStatus('', ''); };
         u.onerror = function (e) {
-            console.warn('❌ [原生] 出错:', e.error);
-            // 任何错误都立即切到百度 TTS
             useNativeSpeech = false;
-            console.log('🔄 切换为百度 TTS');
+            showStatus('切换为在线语音...', '#888');
             speakBaidu(text, rate);
         };
 
@@ -361,7 +371,7 @@ function speakNative(text, rate) {
 
 /* 方案二：百度 TTS（兼容所有浏览器，需联网） */
 function speakBaidu(text, rate) {
-    console.log('🔊 [百度] 朗读:', text);
+    showStatus('正在联网朗读...', '#4A7C59');
 
     var spd = Math.round(2 + rate * 3);
     if (spd < 1) spd = 1;
@@ -376,32 +386,35 @@ function speakBaidu(text, rate) {
         + '&spd=' + spd
         + '&per=0';
 
-    // 用 fetch 下载音频，更好处理错误
     fetch(url)
         .then(function (res) {
             var contentType = res.headers.get('Content-Type') || '';
-            // 百度 TTS 返回 audio 就是成功，返回 JSON 就是失败
             if (contentType.indexOf('audio') === -1) {
                 return res.json().then(function (err) {
-                    throw new Error('百度TTS返回错误: ' + (err.err_msg || err.err_no || '未知'));
+                    throw new Error('百度TTS错误: ' + (err.err_msg || err.err_no || '未知'));
                 });
             }
+            showStatus('正在播放...', '#4A7C59');
             return res.blob();
         })
         .then(function (blob) {
             var blobUrl = URL.createObjectURL(blob);
             var audio = new Audio(blobUrl);
             audio.play().then(function () {
-                console.log('✅ [百度] 播放中');
+                showStatus('✅ 播放中', '#4A7C59');
             }).catch(function (e) {
-                console.error('❌ [百度] 播放被拦截:', e.message);
+                showStatus('播放被浏览器拦截，请重试', '#D4726A');
             });
             audio.onended = function () {
+                showStatus('', '');
                 URL.revokeObjectURL(blobUrl);
+            };
+            audio.onerror = function () {
+                showStatus('音频加载失败', '#D4726A');
             };
         })
         .catch(function (err) {
-            console.error('❌ [百度] 请求失败:', err.message);
+            showStatus('❌ ' + err.message, '#D4726A');
         });
 }
 
