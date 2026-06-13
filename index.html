@@ -272,8 +272,13 @@ var useNativeSpeech = false;  // 是否用原生引擎
 var chineseVoice = null;
 var nativeTested = false;     // 是否已完成原生能力检测
 
+// Edge Android 的 SpeechSynthesis 依赖 Google Play Services，
+// 国产手机上调用 speak() 会弹系统对话框，直接禁用原生引擎
+var isEdgeAndroid = /EdgA\//.test(navigator.userAgent);
+
 // 初始化：找中文语音（没有中文语音就用百度 TTS，绝不弹 Google Play）
 function initVoices() {
+    if (isEdgeAndroid) return;  // Edge Android 跳过，直接用在线 TTS
     var voices = window.speechSynthesis.getVoices();
     if (voices.length === 0) return;
     chineseVoice = voices.find(function (v) { return v.lang === 'zh-CN'; })
